@@ -1,0 +1,7 @@
+.history
+.metals
+.vscode
+.bloop
+.bsp
+target
+metals.sbt

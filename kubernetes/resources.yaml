@@ -1,0 +1,103 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: lets-encrypt-staging
+spec:
+  acme:
+    # Staging server for testing
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: marcin.bablok@gmail.com
+    privateKeySecretRef:
+      name: lets-encrypt-staging
+    solvers:
+      - http01:
+          ingress:
+            class: traefik
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: lets-encrypt-production
+spec:
+  acme:
+    # Production server
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: marcin.bablok@gmail.com
+    privateKeySecretRef:
+      name: lets-encrypt-production
+    solvers:
+      - http01:
+          ingress:
+            class: traefik
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: redbutton-websocket-poc-duckdns-org
+spec:
+  secretName: redbutton-websocket-poc-duckdns-org-tls
+  commonName: redbutton-websocket-poc.duckdns.org
+  issuerRef:
+    name: lets-encrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+    - redbutton-websocket-poc.duckdns.org
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: redbutton-websocket-poc
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`redbutton-websocket-poc.duckdns.org`)
+      services:
+        - kind: Service
+          name: redbutton-websocket-poc
+          port: 80
+  tls:
+    secretName: redbutton-websocket-poc-duckdns-org-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redbutton-websocket-poc
+  labels:
+    app: redbutton-websocket-poc
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: redbutton-websocket-poc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redbutton-websocket-poc
+  labels:
+    app: redbutton-websocket-poc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redbutton-websocket-poc
+  template:
+    metadata:
+      labels:
+        app: redbutton-websocket-poc
+    spec:
+      containers:
+        - name: redbutton-websocket-poc
+          image: marcinbablok/redbutton-websocket-poc:latest
+          ports:
+            - containerPort: 8080
+              name: http
+
+
+
