@@ -3,6 +3,8 @@
 TAG=$RANDOM
 NAME=marcinbablok/redbutton-websocket-poc
 
-#sbt assembly
+kubectl apply -f ../kubernetes/resources.yaml
+sbt assembly
 docker login
 docker buildx build --platform linux/amd64,linux/arm64 -t $NAME:$TAG -t $NAME:latest --push .
+kubectl rollout restart deploy redbutton-websocket-poc
