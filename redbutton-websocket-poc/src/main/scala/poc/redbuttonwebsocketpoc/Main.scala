@@ -16,9 +16,15 @@ object Main extends IOApp.Simple:
         Stream.fromQueueUnterminated(q).through(t.publish),
         Stream.eval(RedbuttonwebsocketpocServer.run[IO](q, t)),
         Stream
-          .awakeEvery[IO](1.seconds)
-          .map(_ =>
-            WebSocketFrame.Text(
+          .awakeEvery[IO](30.seconds)
+          .map(_ => WebSocketFrame.Ping())
+          .through(t.publish),
+        Stream
+          .repeatEval(
+            for {
+              delay <- IO(scala.util.Random.between(1000, 3001))
+              _ <- IO.sleep(delay.millis)
+            } yield WebSocketFrame.Text(
               """{"reactions":{"reaction-1":22,"reaction-2":6,"reaction-3":5,"reaction-4":15,"reaction-5":7}}
             """
             )
