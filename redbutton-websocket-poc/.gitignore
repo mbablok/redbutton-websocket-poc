@@ -1,0 +1,18 @@
+# Scala stuff
+.aiven
+.prime
+*.class
+**/target/
+
+# IDE
+/.idea
+*.iml
+.metals/
+.bloop/
+.bsp/
+metals.sbt
+.jvmopts
+.vscode
+# MacOS
+.DS_Store
+.history
