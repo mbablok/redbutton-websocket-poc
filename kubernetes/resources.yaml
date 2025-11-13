@@ -33,15 +33,15 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: redbutton-websocket-servehttp-com
+  name: redbutton-online
 spec:
-  secretName: redbutton-websocket-servehttp-com-tls
-  commonName: redbutton-websocket.servehttp.com
+  secretName: redbutton-online-tls
+  commonName: redbutton.online
   issuerRef:
-    name: lets-encrypt-production
+    name: lets-encrypt-staging
     kind: ClusterIssuer
   dnsNames:
-    - redbutton-websocket.servehttp.com
+    - redbutton.online
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -52,13 +52,13 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`redbutton-websocket.servehttp.com`)
+      match: Host(`redbutton.online`)
       services:
         - kind: Service
           name: redbutton-websocket-poc
           port: 80
   tls:
-    secretName: redbutton-websocket-servehttp-com-tls
+    secretName: redbutton-online-tls
 ---
 apiVersion: v1
 kind: Service
