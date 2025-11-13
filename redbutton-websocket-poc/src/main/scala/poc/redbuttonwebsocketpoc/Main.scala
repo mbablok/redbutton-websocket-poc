@@ -6,8 +6,10 @@ import fs2.concurrent.Topic
 import fs2.Stream
 import org.http4s.websocket.WebSocketFrame
 import scala.concurrent.duration.*
+import scala.util.Random
 
 object Main extends IOApp.Simple:
+
   def program: IO[Unit] = {
     for {
       q <- Queue.unbounded[IO, WebSocketFrame]
@@ -22,11 +24,20 @@ object Main extends IOApp.Simple:
         Stream
           .repeatEval(
             for {
-              delay <- IO(scala.util.Random.between(1000, 3001))
+              delay <- IO(Random.between(5000, 10001))
+              reactionsCount <- IO(
+                (
+                  Random.between(1, 10),
+                  Random.between(1, 10),
+                  Random.between(1, 10),
+                  Random.between(1, 10),
+                  Random.between(1, 10)
+                )
+              )
+              (r1, r2, r3, r4, r5) = reactionsCount
               _ <- IO.sleep(delay.millis)
             } yield WebSocketFrame.Text(
-              """{"reactions":{"reaction-1":22,"reaction-2":6,"reaction-3":5,"reaction-4":15,"reaction-5":7}}
-            """
+              s"""{"reactions":{"reaction-1":$r1,"reaction-2":$r2,"reaction-3":$r3,"reaction-4":$r4,"reaction-5":$r5}}"""
             )
           )
           .through(t.publish)
