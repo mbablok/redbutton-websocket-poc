@@ -15,7 +15,7 @@ object RedbuttonwebsocketpocServer:
   def run[F[_]: Async: Network : Files](
       q: Queue[F, WebSocketFrame],
       t: Topic[F, WebSocketFrame],
-      clientMessageReceived: Ref[F, Boolean]
+      clientMessageReceived: Ref[F, Int]
   ): F[Unit] = {
     for {
 

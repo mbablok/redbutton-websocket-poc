@@ -16,7 +16,7 @@ class Routes[F[_]: Files: Concurrent] extends Http4sDsl[F] {
       wsb: WebSocketBuilder2[F],
       q: Queue[F, WebSocketFrame],
       t: Topic[F, WebSocketFrame],
-      clientMessageReceived: Ref[F, Boolean]
+      clientMessageReceived: Ref[F, Int]
   ): HttpApp[F] = {
     HttpRoutes.of[F] { case GET -> Root / "ws" =>
       val send: Stream[F, WebSocketFrame] = {
@@ -24,7 +24,7 @@ class Routes[F[_]: Files: Concurrent] extends Http4sDsl[F] {
       }
 
       val receive: Pipe[F, WebSocketFrame, Unit] = {
-        _.evalMap { _ => clientMessageReceived.set(true) }
+        _.evalMap { _ => clientMessageReceived.update(_ + 1) }
       }
 
       wsb.build(send, receive)

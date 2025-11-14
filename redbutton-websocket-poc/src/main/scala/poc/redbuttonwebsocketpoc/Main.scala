@@ -49,11 +49,25 @@ object Main extends IOApp.Simple:
       if (result) stream else Stream.empty
     }
 
+  val generateMessage = IO(
+    (
+      Random.between(1, 10),
+      Random.between(1, 10),
+      Random.between(1, 10),
+      Random.between(1, 10),
+      Random.between(1, 10)
+    )
+  ).map { case (r1, r2, r3, r4, r5) =>
+    WebSocketFrame.Text(
+      Reactions(r1, r2, r3, r4, r5).asJson.noSpaces
+    )
+  }
+
   def program: IO[Unit] = {
     for {
       q <- Queue.unbounded[IO, WebSocketFrame]
       t <- Topic[IO, WebSocketFrame]
-      clientMessageReceived <- Ref.of[IO, Boolean](false)
+      clientMessageReceived <- Ref.of[IO, Int](0)
       s <- Stream(
         Stream.fromQueueUnterminated(q).through(t.publish),
         Stream.eval(
@@ -64,25 +78,20 @@ object Main extends IOApp.Simple:
           .map(_ => WebSocketFrame.Ping())
           .through(t.publish),
         conditionalStream(
-          clientMessageReceived.get,
+          clientMessageReceived.get.map(_ > 0),
           Stream
             .repeatEval(
-              for {
-                delay <- IO(Random.between(5000, 10001))
-                reactionsCount <- IO(
-                  (
-                    Random.between(1, 10),
-                    Random.between(1, 10),
-                    Random.between(1, 10),
-                    Random.between(1, 10),
-                    Random.between(1, 10)
-                  )
-                )
-                (r1, r2, r3, r4, r5) = reactionsCount
-                _ <- IO.sleep(delay.millis)
-              } yield WebSocketFrame.Text(
-                Reactions(r1, r2, r3, r4, r5).asJson.noSpaces
-              )
+              clientMessageReceived.get.flatMap { count =>
+                if (count == 1) {
+                  clientMessageReceived.set(2) *> generateMessage
+                } else {
+                  for {
+                    delay <- IO(Random.between(5000, 10001))
+                    _ <- IO.sleep(delay.millis)
+                    msg <- generateMessage
+                  } yield msg
+                }
+              }
             )
             .through(t.publish)
         ).repeat
