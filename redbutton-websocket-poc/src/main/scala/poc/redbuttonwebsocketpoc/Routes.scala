@@ -14,17 +14,17 @@ import org.http4s.websocket.WebSocketFrame
 class Routes[F[_]: Files: Concurrent] extends Http4sDsl[F] {
   def service(
       wsb: WebSocketBuilder2[F],
-      q: Queue[F, WebSocketFrame],
-      t: Topic[F, WebSocketFrame],
-      clientMessageReceived: Ref[F, Int]
+      queue: Queue[F, WebSocketFrame],
+      topic: Topic[F, WebSocketFrame],
+      clientMessages: Ref[F, Int]
   ): HttpApp[F] = {
     HttpRoutes.of[F] { case GET -> Root / "ws" =>
       val send: Stream[F, WebSocketFrame] = {
-        t.subscribe(maxQueued = 1000)
+        topic.subscribe(maxQueued = 1000)
       }
 
       val receive: Pipe[F, WebSocketFrame, Unit] = {
-        _.evalMap { _ => clientMessageReceived.update(_ + 1) }
+        _.evalMap { _ => clientMessages.update(_ + 1) }
       }
 
       wsb.build(send, receive)
