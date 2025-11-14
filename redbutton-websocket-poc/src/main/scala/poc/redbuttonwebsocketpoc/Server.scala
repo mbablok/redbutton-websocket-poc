@@ -22,7 +22,12 @@ object Server:
       .withHost(ipv4"0.0.0.0")
       .withPort(port"8080")
       .withHttpWebSocketApp(wsb =>
-        new Routes().service(wsb, queue, topic, clientMessageReceived)
+        new Routes().service(
+          wsb,
+          queue,
+          topic,
+          clientMessageReceived
+        )
       )
       .build
       .useForever
