@@ -1,6 +1,6 @@
 package poc.redbuttonwebsocketpoc
 
-import cats.effect.Concurrent
+import cats.effect.{Concurrent, Ref}
 import cats.effect.std.Queue
 import fs2.concurrent.Topic
 import fs2.io.file.Files
@@ -15,7 +15,8 @@ class Routes[F[_]: Files: Concurrent] extends Http4sDsl[F] {
   def service(
       wsb: WebSocketBuilder2[F],
       q: Queue[F, WebSocketFrame],
-      t: Topic[F, WebSocketFrame]
+      t: Topic[F, WebSocketFrame],
+      clientMessageReceived: Ref[F, Boolean]
   ): HttpApp[F] = {
     HttpRoutes.of[F] { case GET -> Root / "ws" =>
       val send: Stream[F, WebSocketFrame] = {
@@ -23,7 +24,7 @@ class Routes[F[_]: Files: Concurrent] extends Http4sDsl[F] {
       }
 
       val receive: Pipe[F, WebSocketFrame, Unit] = {
-        _.foreach { _ => Concurrent[F].unit }
+        _.evalMap { _ => clientMessageReceived.set(true) }
       }
 
       wsb.build(send, receive)

@@ -1,7 +1,8 @@
 package poc.redbuttonwebsocketpoc
 
 import cats.effect.std.Queue
-import cats.effect.{IO, IOApp}
+import cats.effect.{IO, IOApp, Ref}
+import cats.syntax.flatMap.*
 import fs2.concurrent.Topic
 import fs2.Stream
 import org.http4s.websocket.WebSocketFrame
@@ -9,16 +10,17 @@ import scala.concurrent.duration.*
 import scala.util.Random
 import io.circe.{Encoder, Decoder, Json}
 import io.circe.syntax.*
+import cats.Applicative
 
 object Main extends IOApp.Simple:
 
   case class Reactions(
-                        reaction1: Int,
-                        reaction2: Int,
-                        reaction3: Int,
-                        reaction4: Int,
-                        reaction5: Int
-                      )
+      reaction1: Int,
+      reaction2: Int,
+      reaction3: Int,
+      reaction4: Int,
+      reaction5: Int
+  )
 
   given Encoder[Reactions] = Encoder.instance { r =>
     Json.obj(
@@ -39,37 +41,51 @@ object Main extends IOApp.Simple:
     } yield Reactions(reaction1, reaction2, reaction3, reaction4, reaction5)
   }
 
+  def conditionalStream[F[_]: Applicative, A](
+      condition: F[Boolean],
+      stream: Stream[F, A]
+  ): Stream[F, A] =
+    Stream.eval(condition).flatMap { result =>
+      if (result) stream else Stream.empty
+    }
+
   def program: IO[Unit] = {
     for {
       q <- Queue.unbounded[IO, WebSocketFrame]
       t <- Topic[IO, WebSocketFrame]
+      clientMessageReceived <- Ref.of[IO, Boolean](false)
       s <- Stream(
         Stream.fromQueueUnterminated(q).through(t.publish),
-        Stream.eval(RedbuttonwebsocketpocServer.run[IO](q, t)),
+        Stream.eval(
+          RedbuttonwebsocketpocServer.run[IO](q, t, clientMessageReceived)
+        ),
         Stream
           .awakeEvery[IO](30.seconds)
           .map(_ => WebSocketFrame.Ping())
           .through(t.publish),
-        Stream
-          .repeatEval(
-            for {
-              delay <- IO(Random.between(5000, 10001))
-              reactionsCount <- IO(
-                (
-                  Random.between(1, 10),
-                  Random.between(1, 10),
-                  Random.between(1, 10),
-                  Random.between(1, 10),
-                  Random.between(1, 10)
+        conditionalStream(
+          clientMessageReceived.get,
+          Stream
+            .repeatEval(
+              for {
+                delay <- IO(Random.between(5000, 10001))
+                reactionsCount <- IO(
+                  (
+                    Random.between(1, 10),
+                    Random.between(1, 10),
+                    Random.between(1, 10),
+                    Random.between(1, 10),
+                    Random.between(1, 10)
+                  )
                 )
+                (r1, r2, r3, r4, r5) = reactionsCount
+                _ <- IO.sleep(delay.millis)
+              } yield WebSocketFrame.Text(
+                Reactions(r1, r2, r3, r4, r5).asJson.noSpaces
               )
-              (r1, r2, r3, r4, r5) = reactionsCount
-              _ <- IO.sleep(delay.millis)
-            } yield WebSocketFrame.Text(
-              Reactions(r1, r2, r3, r4, r5).asJson.noSpaces
             )
-          )
-          .through(t.publish)
+            .through(t.publish)
+        ).repeat
       ).parJoinUnbounded.compile.drain
     } yield s
   }

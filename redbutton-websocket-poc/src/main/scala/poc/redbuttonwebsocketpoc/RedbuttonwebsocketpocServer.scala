@@ -1,6 +1,6 @@
 package poc.redbuttonwebsocketpoc
 
-import cats.effect.Async
+import cats.effect.{Async, Ref}
 import com.comcast.ip4s.*
 import fs2.io.net.Network
 import org.http4s.ember.server.EmberServerBuilder
@@ -14,7 +14,8 @@ object RedbuttonwebsocketpocServer:
 
   def run[F[_]: Async: Network : Files](
       q: Queue[F, WebSocketFrame],
-      t: Topic[F, WebSocketFrame]
+      t: Topic[F, WebSocketFrame],
+      clientMessageReceived: Ref[F, Boolean]
   ): F[Unit] = {
     for {
 
@@ -23,7 +24,7 @@ object RedbuttonwebsocketpocServer:
           .default[F]
           .withHost(ipv4"0.0.0.0")
           .withPort(port"8080")
-          .withHttpWebSocketApp(wsb => new Routes().service(wsb, q, t))
+          .withHttpWebSocketApp(wsb => new Routes().service(wsb, q, t, clientMessageReceived))
           .build
     } yield ()
 
